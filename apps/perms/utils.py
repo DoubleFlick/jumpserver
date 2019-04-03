@@ -163,6 +163,8 @@ class AssetPermissionUtil:
         permissions = self.permissions.prefetch_related('nodes', 'system_users')
         for perm in permissions:
             for node in perm.nodes.all():
+                # 临时设置node的perm属性
+                setattr(node, 'tmp_perm', perm)
                 nodes[node].update(perm.system_users.all())
         return nodes
 
@@ -175,6 +177,9 @@ class AssetPermissionUtil:
         permissions = self.permissions.prefetch_related('assets', 'system_users')
         for perm in permissions:
             for asset in perm.assets.all().valid().prefetch_related('nodes'):
+                # 设置asset的perm-actions属性
+                set_or_update_asset_actions_attr_from_perm(asset, perm)
+
                 assets[asset].update(
                     perm.system_users.filter(protocol=asset.protocol)
                 )
@@ -188,6 +193,9 @@ class AssetPermissionUtil:
         for node, system_users in nodes.items():
             _assets = node.get_all_assets().valid().prefetch_related('nodes')
             for asset in _assets:
+                set_or_update_asset_actions_attr_from_perm(
+                    asset, getattr(node, 'tmp_perm', None)
+                )
                 assets[asset].update(
                     [s for s in system_users if s.protocol == asset.protocol]
                 )
@@ -423,3 +431,11 @@ def parse_asset_to_tree_node(node, asset, system_users):
     }
     tree_node = TreeNode(**data)
     return tree_node
+
+
+def set_or_update_asset_actions_attr_from_perm(asset, perm):
+    if perm is None:
+        return
+    actions = getattr(asset, 'actions', set())
+    actions.update(perm.actions.all())
+    setattr(asset, 'actions', actions)

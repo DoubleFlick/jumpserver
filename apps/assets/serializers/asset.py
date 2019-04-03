@@ -48,9 +48,11 @@ class AssetGrantedSerializer(serializers.ModelSerializer):
     """
     被授权资产的数据结构
     """
+
     system_users_granted = AssetSystemUserSerializer(many=True, read_only=True)
     system_users_join = serializers.SerializerMethodField()
     # nodes = NodeTMPSerializer(many=True, read_only=True)
+    actions = serializers.SerializerMethodField()
 
     class Meta:
         model = Asset
@@ -58,12 +60,18 @@ class AssetGrantedSerializer(serializers.ModelSerializer):
             "id", "hostname", "ip", "port", "system_users_granted",
             "is_active", "system_users_join", "os", 'domain',
             "platform", "comment", "protocol", "org_id", "org_name",
+            "actions"
         )
 
     @staticmethod
     def get_system_users_join(obj):
         system_users = [s.username for s in obj.system_users_granted]
         return ', '.join(system_users)
+
+    @staticmethod
+    def get_actions(obj):
+        actions = [action.name for action in obj.actions]
+        return actions
 
 
 class MyAssetGrantedSerializer(AssetGrantedSerializer):
