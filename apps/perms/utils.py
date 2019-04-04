@@ -433,6 +433,7 @@ def parse_asset_to_tree_node(node, asset, system_users):
                 'protocol': asset.protocol,
                 'platform': asset.platform,
                 'domain': None if not asset.domain else asset.domain.id,
+                'actions': [action.name for action in asset.actions],
                 'is_active': asset.is_active,
                 'comment': asset.comment
             },
