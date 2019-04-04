@@ -163,8 +163,6 @@ class AssetPermissionUtil:
         permissions = self.permissions.prefetch_related('nodes', 'system_users')
         for perm in permissions:
             for node in perm.nodes.all():
-                # 临时设置node的perm属性
-                setattr(node, 'tmp_perm', perm)
                 nodes[node].update(perm.system_users.all())
         return nodes
 
@@ -177,13 +175,26 @@ class AssetPermissionUtil:
         permissions = self.permissions.prefetch_related('assets', 'system_users')
         for perm in permissions:
             for asset in perm.assets.all().valid().prefetch_related('nodes'):
-                # 设置asset的perm-actions属性
-                set_or_update_asset_actions_attr_from_perm(asset, perm)
-
                 assets[asset].update(
                     perm.system_users.filter(protocol=asset.protocol)
                 )
         return assets
+
+    def dynamic_add_actions_attr_to_assets(self):
+        """
+        给资产(self._assets)动态添加属性 => actions:
+        值 => 取自_资产的所有直接授权规则和所有祖先节点的所有授权规则的_actions值的并集
+        (其中资产的所有授权规则要过滤出只属于self.object的授权规则)
+        """
+        for asset, _ in self._assets.items():
+            # 获取资产所有相关授权规则的actions
+            actions = set()
+            perms = get_asset_permissions(asset, include_node=True)
+            _perms = perms.filter(id__in=[perm.id for perm in self.permissions])
+            for _perm in _perms:
+                actions.update(_perm.actions.all())
+            # 设置资产的actions
+            setattr(asset, 'actions', actions)
 
     def get_assets_without_cache(self):
         if self._assets:
@@ -193,13 +204,11 @@ class AssetPermissionUtil:
         for node, system_users in nodes.items():
             _assets = node.get_all_assets().valid().prefetch_related('nodes')
             for asset in _assets:
-                set_or_update_asset_actions_attr_from_perm(
-                    asset, getattr(node, 'tmp_perm', None)
-                )
                 assets[asset].update(
                     [s for s in system_users if s.protocol == asset.protocol]
                 )
         self._assets = assets
+        self.dynamic_add_actions_attr_to_assets()  # 动态添加资产的actions属性
         return self._assets
 
     def get_cache_key(self, resource):
@@ -431,11 +440,3 @@ def parse_asset_to_tree_node(node, asset, system_users):
     }
     tree_node = TreeNode(**data)
     return tree_node
-
-
-def set_or_update_asset_actions_attr_from_perm(asset, perm):
-    if perm is None:
-        return
-    actions = getattr(asset, 'actions', set())
-    actions.update(perm.actions.all())
-    setattr(asset, 'actions', actions)
