@@ -180,7 +180,7 @@ class AssetPermissionUtil:
                 )
         return assets
 
-    def dynamic_add_actions_attr_to_assets(self):
+    def dynamic_setattr_actions_to_assets(self):
         """
         给资产(self._assets)动态添加属性 => actions:
         值 => 取自_资产的所有直接授权规则和所有祖先节点的所有授权规则的_actions值的并集
@@ -208,7 +208,7 @@ class AssetPermissionUtil:
                     [s for s in system_users if s.protocol == asset.protocol]
                 )
         self._assets = assets
-        self.dynamic_add_actions_attr_to_assets()  # 动态添加资产的actions属性
+        self.dynamic_setattr_actions_to_assets()  # 动态设置资产的actions属性
         return self._assets
 
     def get_cache_key(self, resource):
